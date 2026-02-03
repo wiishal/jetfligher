@@ -1,9 +1,34 @@
-<style>
-    body{
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body {
         margin: 0;
-    }
-</style>
-<canvas>
+        overflow: hidden;
+      }
 
-</canvas>
-<script src="index.js"></script>
+      #loading {
+        position: fixed;
+        inset: 0;
+        background: black;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-family: sans-serif;
+        z-index: 10;
+      }
+
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="loading">Loading game…</div>
+    <canvas></canvas>
+    <script src="index.js"></script>
+  </body>
+</html>

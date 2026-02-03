@@ -4,6 +4,33 @@ const c = canvas.getContext("2d");
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
+const loadingScreen = document.getElementById("loading");
+
+const images = {
+  player: "./assets/jet.png",
+  invader: "./assets/chicken.png",
+};
+
+const loadedImages = {};
+let loadedCount = 0;
+const totalImages = Object.keys(images).length;
+
+function loadImages(callback) {
+  Object.entries(images).forEach(([key, src]) => {
+    const img = new Image();
+    img.src = src;
+
+    img.onload = () => {
+      loadedImages[key] = img;
+      loadedCount++;
+
+      if (loadedCount === totalImages) {
+        callback();
+      }
+    };
+  });
+}
+
 class Player {
   constructor() {
     this.width = 128;
@@ -21,8 +48,7 @@ class Player {
 
     this.speed = 15;
 
-    this.img = new Image();
-    this.img.src = "./assets/jet.png";
+    this.img = loadedImages.player;
   }
 
   update() {
@@ -45,7 +71,6 @@ class Player {
   }
 
   draw() {
-    if (this.img.complete) {
       c.drawImage(
         this.img,
         this.position.x,
@@ -53,7 +78,6 @@ class Player {
         this.width,
         this.height,
       );
-    }
   }
 }
 
@@ -111,23 +135,12 @@ class Bullets {
 
 class Invader {
   constructor({ position }) {
-    this.position = {
-      x: position.x,
-      y: position.y,
-    };
+    this.position = { ...position };
+    this.velocity = { x: 0, y: 0 };
 
-    this.velocity = {
-      x: 0,
-      y: 0,
-    };
-
-    this.img = new Image();
-    this.img.src = "./assets/chicken.png";
-
-    this.img.onload = () => {
-      this.width = this.img.width * 0.1;
-      this.height = this.img.height * 0.1;
-    };
+    this.img = loadedImages.invader; 
+    this.width = this.img.width * 0.1;
+    this.height = this.img.height * 0.1;
   }
 
   update({ velocity }) {
@@ -137,15 +150,13 @@ class Invader {
   }
 
   draw() {
-    if (this.img.complete) {
-      c.drawImage(
-        this.img,
-        this.position.x,
-        this.position.y,
-        this.width,
-        this.height,
-      );
-    }
+    c.drawImage(
+      this.img,
+      this.position.x,
+      this.position.y,
+      this.width,
+      this.height
+    );
   }
 }
 
@@ -202,8 +213,9 @@ function bulletHitsInvader(bullet, invader) {
     bullet.position.y - bullet.radius <= invader.position.y + invader.height
   );
 }
+let player; // declare only
 
-const player = new Player();
+// const player = new Player();
 const gridsArray = [];
 const BulletArray = [];
 const EggsArray = [];
@@ -298,10 +310,12 @@ function animate() {
 }
 
 //starting =====================================================================
-player.img.onload = () => {
-  console.log("starting game....");
+loadImages(() => {
+  loadingScreen.style.display = "none";
+  player = new Player();   // ✅ SAFE now
   animate();
-};
+});
+
 
 //listners =======================================================================
 window.addEventListener("keydown", ({ key }) => {
