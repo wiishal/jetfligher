@@ -5,6 +5,14 @@ canvas.width = innerWidth;
 canvas.height = innerHeight;
 
 const loadingScreen = document.getElementById("loading");
+const scoreEl = document.getElementById("score");
+
+let score = 0;
+
+function addScore(points = 10) {
+  score += points;
+  scoreEl.textContent = `Score: ${score}`;
+}
 
 const images = {
   player: "./assets/jet.png",
@@ -34,8 +42,8 @@ function loadImages(callback) {
 
 class Player {
   constructor() {
-    this.width = 128;
-    this.height = 128;
+    this.width = 70;
+    this.height = 40;
 
     this.position = {
       x: canvas.width / 2 - this.width / 2,
@@ -48,6 +56,7 @@ class Player {
     };
 
     this.speed = 15;
+    this.opacity = 1;
 
     this.img = loadedImages.player;
     this.width = this.img.width * 0.1;
@@ -57,23 +66,25 @@ class Player {
   update() {
     this.draw();
 
-    player.position.x += player.velocity.x;
-    player.position.y += player.velocity.y;
+    this.position.x += this.velocity.x;
+    this.position.y += this.velocity.y;
 
     // clamp X
-    player.position.x = Math.max(
+    this.position.x = Math.max(
       0,
-      Math.min(canvas.width - player.width, player.position.x),
+      Math.min(canvas.width - this.width, this.position.x),
     );
 
     // clamp Y
-    player.position.y = Math.max(
+    this.position.y = Math.max(
       canvas.height / 2,
-      Math.min(canvas.height - player.height, player.position.y),
+      Math.min(canvas.height - this.height, this.position.y),
     );
   }
 
   draw() {
+    c.save();
+    c.globalAlpha = this.opacity;
     c.drawImage(
       this.img,
       this.position.x,
@@ -81,6 +92,7 @@ class Player {
       this.width,
       this.height,
     );
+    c.restore();
   }
 }
 
@@ -94,7 +106,7 @@ class Eggs {
       x: 0,
       y: 5,
     };
-    this.radius = 10;
+    this.radius = 5;
     this.speed = 10;
     this.width = 50;
     this.height = 30;
@@ -104,7 +116,7 @@ class Eggs {
   draw() {
     c.drawImage(
       this.img,
-      this.position.x - this.width / 2, 
+      this.position.x - this.width / 2,
       this.position.y - this.height / 2,
       this.width,
       this.height,
@@ -214,6 +226,33 @@ class Grid {
   }
 }
 
+class Particles {
+  constructor({ position, velocity, radius }) {
+    this.position = { ...position };
+    this.velocity = { ...velocity };
+    this.radius = radius;
+    this.speed = 10;
+    this.opacity = 1;
+  }
+
+  draw() {
+    c.save();
+    c.globalAlpha = this.opacity;
+    c.beginPath();
+    c.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
+    c.fillStyle = "red";
+    c.fill();
+    c.closePath();
+    c.restore();
+  }
+
+  update() {
+    this.draw();
+    this.position.x += this.velocity.x;
+    this.position.y += this.velocity.y;
+    this.opacity -= 0.01;
+  }
+}
 // collision detection both axis ========================================
 
 function bulletHitsInvader(bullet, invader) {
@@ -233,8 +272,55 @@ function eggsHitsPlayer(egg, player) {
     egg.position.y - egg.radius <= player.position.y + player.height
   );
 }
+//  ============================= PARTICLE EFFECT LOOP =======================================
 
-// ============================= KEYS =======================================
+function createParticleEffect({ object }) {
+  for (let i = 0; i < 15; i++) {
+    ParticlesArray.push(
+      new Particles({
+        position: {
+          x: object.position.x + object.width / 2,
+          y: object.position.y + object.height / 2,
+        },
+        velocity: {
+          x: (Math.random() - 0.5) * 2,
+          y: (Math.random() - 0.5) * 2,
+        },
+        radius: Math.random() * 2,
+      }),
+    );
+  }
+}
+
+//  ============================= SCREENS =======================================
+function gamePauseScreen() {
+  c.fillStyle = "rgba(0,0,0,0.4)";
+  c.fillRect(0, 0, canvas.width, canvas.height);
+  c.fillStyle = "white";
+  c.font = "40px sans-serif";
+  c.fillText("PAUSED", canvas.width / 2 - 70, canvas.height / 2);
+  c.fillText(
+    "press ESC for START",
+    canvas.width / 2 - 200,
+    canvas.height / 2 + 100,
+  );
+}
+function gameOverScreen() {
+  c.fillStyle = "rgba(0,0,0,0.4)";
+  c.fillRect(0, 0, canvas.width, canvas.height);
+  c.fillStyle = "white";
+  c.font = "40px sans-serif";
+  c.fillText(`SCORE ${score}`, canvas.width / 2 - 100, canvas.height / 2 - 200);
+
+  c.fillText("GAME OVER", canvas.width / 2 - 70, canvas.height / 2);
+  c.fillText(
+    "press R for RESTART",
+    canvas.width / 2 - 200,
+    canvas.height / 2 + 100,
+  );
+}
+
+//  ============================= KEYS =======================================
 
 const keys = {
   ArrowLeft: {
@@ -251,20 +337,53 @@ const keys = {
   },
 };
 
+
+// ================================= CONSTANTS ===================================
+
 let gamePaused = false;
-let player;
 const gridsArray = [];
 const BulletArray = [];
 const EggsArray = [];
-
+const ParticlesArray = [];
 let frames = 0;
 let randomInterval = Math.floor(Math.random() * 500 + 50);
 let eggInterval = 50;
-let gameOver = false;
+let game = { over: false, active: true, pause: false };
+let player;
+
+
+
+// ================================= RESTART ===================================
+
+function resetGame() {
+  score = 0;
+  scoreEl.textContent = "Score: 0";
+
+  player = new Player();
+  player.opacity = 1;
+
+  gridsArray.length = 0;
+  BulletArray.length = 0;
+  EggsArray.length = 0;
+  ParticlesArray.length = 0;
+
+  frames = 0;
+
+  game.over = false;
+  game.active = true;
+  game.pause = false;
+
+  gridsArray.push(new Grid());
+  animate();
+}
 
 // ================================= GAME LOOP ===================================
 function animate() {
-  if (!gameOver) requestAnimationFrame(animate);
+  if (!game.active) {
+    gameOverScreen();
+  }
+  if (!game.active) return;
+  requestAnimationFrame(animate);
 
   // clear
   c.clearRect(0, 0, canvas.width, canvas.height);
@@ -279,16 +398,11 @@ function animate() {
   player.draw();
 
   // USE OVERLAY (visual only)
-  if (gamePaused) {
-    c.fillStyle = "rgba(0,0,0,0.4)";
-    c.fillRect(0, 0, canvas.width, canvas.height);
-    c.fillStyle = "white";
-    c.font = "40px sans-serif";
-    c.fillText("PAUSED", canvas.width / 2 - 70, canvas.height / 2);
+  if (game.pause) {
+    gamePauseScreen();
+
     return;
   }
-
-  if (gameOver) return;
 
   // ================= UPDATE LOGIC =================
 
@@ -301,7 +415,12 @@ function animate() {
   if (keys.ArrowDown.pressed) player.velocity.y = player.speed;
 
   player.update();
-
+  ParticlesArray.forEach((particle, particleIdx) => {
+    if (particle.opacity <= 0) {
+      ParticlesArray.splice(particleIdx, 1);
+    }
+    particle.update();
+  });
   if (gridsArray.length === 0) {
     gridsArray.push(new Grid());
   }
@@ -332,6 +451,8 @@ function animate() {
         if (bulletHitsInvader(bullet, invader)) {
           grid.invaders.splice(i, 1);
           BulletArray.splice(j, 1);
+          createParticleEffect({ object: invader });
+          addScore();
         }
       }
     }
@@ -348,11 +469,19 @@ function animate() {
   });
 
   EggsArray.forEach((egg, i) => {
+    if (eggsHitsPlayer(egg, player)) {
+      createParticleEffect({ object: player });
+      EggsArray.splice(i, 1);
+      player.opacity = 0;
+      game.over = true;
+      setTimeout(() => {
+        game.active = false;
+      }, 2000);
+    }
     if (egg.position.y > canvas.height) {
       EggsArray.splice(i, 1);
     } else {
       egg.update();
-      if (eggsHitsPlayer(egg, player)) gameOver = true;
     }
   });
 
@@ -368,6 +497,12 @@ loadImages(() => {
 
 //==================================== LISTENER ===================================
 window.addEventListener("keydown", ({ key }) => {
+  if (key === "r" && game.over) {
+    resetGame();
+    return;
+  }
+
+  if (game.over) return;
   switch (key) {
     case "ArrowLeft":
       keys.ArrowLeft.pressed = true;
@@ -382,14 +517,16 @@ window.addEventListener("keydown", ({ key }) => {
       keys.ArrowDown.pressed = true;
       break;
     case " ":
-      console.log(EggsArray.length);
       break;
+
     case "Escape":
-      gamePaused = !gamePaused;
+      game.pause = !game.pause;
   }
 });
 
 window.addEventListener("keyup", ({ key }) => {
+  if (game.over) return;
+
   switch (key) {
     case "ArrowLeft":
       keys.ArrowLeft.pressed = false;
