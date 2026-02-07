@@ -44,7 +44,7 @@
         inset: 0;
         background: black;
         color: white;
-        display: flex;
+        display: none;
         align-items: center;
         justify-content: center;
         z-index: 10;
